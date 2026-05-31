@@ -1,7 +1,7 @@
 ﻿fastapi==0.111.0
-uvicorn[standard]
+uvicorn[standard]==0.29.0
 ultralytics==8.4.56
-Pillow==10.3.0
+Pillow
 supabase==2.10.0
 httpx==0.27.0
 python-multipart==0.0.9
