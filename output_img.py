@@ -1,6 +1,8 @@
 import os
 import io
 import uuid
+import time
+import jwt
 from PIL import Image, ImageDraw, ImageFont
 from fastapi.responses import RedirectResponse
 from supabase import create_client, Client
@@ -8,13 +10,20 @@ from supabase import create_client, Client
 
 # ── Supabase setup ────────────────────────────────────────────────────────────
 SUPABASE_URL        = os.environ["SUPABASE_URL"]
-SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
+SUPABASE_JWT_SECRET = os.environ["SUPABASE_JWT_SECRET"]  # Legacy JWT secret
 BUCKET_NAME         = os.environ.get("SUPABASE_BUCKET", "output-images")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+# Generate a valid service_role JWT from the legacy secret
+_service_role_jwt = jwt.encode(
+    {"role": "service_role", "iss": "supabase", "iat": int(time.time()), "exp": int(time.time()) + 315360000},
+    SUPABASE_JWT_SECRET,
+    algorithm="HS256"
+)
+
+supabase: Client = create_client(SUPABASE_URL, _service_role_jwt)
 
 
-# ── Drawing (unchanged logic, your original colours & font) ──────────────────
+# ── Drawing ───────────────────────────────────────────────────────────────────
 def draw_boxes(image: Image.Image, results, model) -> Image.Image:
     """Draw bounding boxes with class name and confidence score on image."""
     draw = ImageDraw.Draw(image)
@@ -59,7 +68,6 @@ def save_output_image(image: Image.Image) -> str:
     """Upload annotated image to Supabase Storage. Returns the storage path."""
     output_filename = f"{uuid.uuid4().hex}.jpg"
 
-    # Convert PIL image → JPEG bytes (no disk write)
     buf = io.BytesIO()
     image.save(buf, format="JPEG", quality=95)
     image_bytes = buf.getvalue()
@@ -73,7 +81,12 @@ def save_output_image(image: Image.Image) -> str:
     return output_filename
 
 
+def get_public_url(storage_path: str) -> str:
+    """Return the public URL for a stored image."""
+    return supabase.storage.from_(BUCKET_NAME).get_public_url(storage_path)
+
+
 def serve_output_image(filename: str) -> RedirectResponse:
     """Redirect /output/{filename} to the Supabase public URL."""
-    public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
+    public_url = get_public_url(filename)
     return RedirectResponse(url=public_url)
