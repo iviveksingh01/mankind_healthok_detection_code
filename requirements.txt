@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-﻿fastapi==0.111.0
-=======
+
 fastapi==0.111.0
->>>>>>> 19f9d18e9ac7cb68bcbe7072a116e03cd6bb6d6c
 uvicorn[standard]==0.29.0
 ultralytics==8.4.56
 Pillow
